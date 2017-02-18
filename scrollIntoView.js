@@ -142,15 +142,13 @@ module.exports = function(target, settings, callback){
 
     while(parent){
         if(
-            // If there is a validTarget function, check it.
-            (settings.validTarget ? settings.validTarget(parent, parents) : true) &&
+            // if window and we are forcing process of window
+            (parent === window && !settings.dontAlwaysScrollMain) ||
 
-            // Else if window
-            parent === window ||
+            (   // or if there is a validTarget function, check it.
+                settings.validTarget ? settings.validTarget(parent, parents) : true &&
 
-            // Else...
-            (
-                /// check if scrollable
+                // and if scrollable
                 (
                     parent.scrollHeight !== parent.clientHeight ||
                     parent.scrollWidth !== parent.clientWidth
@@ -160,10 +158,10 @@ module.exports = function(target, settings, callback){
                 getComputedStyle(parent).overflow !== 'hidden'
             )
         ){
-            parents++;
             transitionScrollTo(target, parent, settings, done);
         }
 
+        parents++;
         parent = parent.parentElement;
 
         if(!parent){
