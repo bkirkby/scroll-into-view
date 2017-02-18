@@ -37,7 +37,8 @@ scrollIntoView(someElement, {
     align:{
         top: 0 to 1, default 0.5 (center)
         left: 0 to 1, default 0.5 (center)
-    }
+    },
+    dontAlwaysScrollMain: true // by default the main window is scrolled even if it doesn't match validTarget(). this turns that off
 });
 ```
 
