@@ -131,11 +131,13 @@ module.exports = function(target, settings, callback){
     settings.ease = settings.ease || function(v){return 1 - Math.pow(1 - v, v / 2);};
 
     var parent = target.parentElement,
-        parents = 0;
+        parentsScrolled = 0,
+        parentsTraversed = 0;
 
     function done(endType){
-        parents--;
-        if(!parents){
+        parentsScrolled--;
+        parentsTraversed--;
+        if(!parentsScrolled){
             callback && callback(endType);
         }
     }
@@ -146,7 +148,7 @@ module.exports = function(target, settings, callback){
             (parent === window && !settings.dontAlwaysScrollMain) ||
 
             (   // or if there is a validTarget function, check it.
-                settings.validTarget ? settings.validTarget(parent, parents) : true &&
+                settings.validTarget ? settings.validTarget(parent, parentsScrolled, parentsTraversed) : true &&
 
                 // and if scrollable
                 (
@@ -158,10 +160,11 @@ module.exports = function(target, settings, callback){
                 getComputedStyle(parent).overflow !== 'hidden'
             )
         ){
+            parentsScrolled++;
             transitionScrollTo(target, parent, settings, done);
         }
 
-        parents++;
+        parentsTraversed++;
         parent = parent.parentElement;
 
         if(!parent){

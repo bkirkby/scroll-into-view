@@ -30,7 +30,7 @@ scrollIntoView(someElement, {
     ease: function(value){
         return Math.pow(value,2) - value; // Do something weird.
     },
-    validTarget: function(target, parentsScrolled){
+    validTarget: function(target, parentsScrolled, parentsTraversed){
         // Only scroll the first two elements that don't have the class "dontScroll"
         return parentsScrolled < 2 && target !== window && !target.matches('.dontScroll');
     },
