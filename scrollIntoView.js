@@ -1,9 +1,10 @@
 var raf = require('raf'),
     COMPLETE = 'complete',
-    CANCELED = 'canceled';
+    CANCELED = 'canceled',
+    SKIPPED = 'skipped';
 
 function setElementScroll(element, x, y){
-    if(element === window){
+    if(isWindow(element)){
         element.scrollTo(x, y);
     }else{
         element.scrollLeft = x;
@@ -22,8 +23,7 @@ function getTargetScrollLocation(target, parent, align){
         topAlign = align && align.top != null ? align.top : 0.5,
         leftScalar = leftAlign,
         topScalar = topAlign;
-
-    if(parent === window){
+    if(isWindow(parent)){
         x = targetPosition.left + window.scrollX - window.innerWidth * leftScalar + Math.min(targetPosition.width, window.innerWidth) * leftScalar;
         y = targetPosition.top + window.scrollY - window.innerHeight * topScalar + Math.min(targetPosition.height, window.innerHeight) * topScalar;
         x = Math.max(Math.min(x, document.body.scrollWidth - window.innerWidth * leftScalar), 0);
@@ -80,6 +80,30 @@ function animate(parent){
         animate(parent);
     });
 }
+
+function getBoundingRect(elem) {
+  if(isWindow(elem)) {
+    return {
+      top: 0,
+      left: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight
+    }
+  } else {
+    return (elem.getBoundingClientRect?elem.getBoundingClientRect():null)
+  }
+}
+
+function isVisible(target, parent) {
+  var targetRect = getBoundingRect(target);//(target.getBoundingClientRect)?target.getBoundingClientRect():null;
+  var parentRect = getBoundingRect(parent);//(parent.getBoundingClientRect)?parent.getBoundingClientRect():null;
+  return targetRect && parentRect
+         && targetRect.bottom <= parentRect.bottom
+         && targetRect.right <= parentRect.right
+         && targetRect.top >= parentRect.top
+         && targetRect.left >= parentRect.left;
+}
+
 function transitionScrollTo(target, parent, settings, callback){
     var idle = !parent._scrollSettings,
         lastSettings = parent._scrollSettings,
@@ -90,7 +114,7 @@ function transitionScrollTo(target, parent, settings, callback){
         lastSettings.end(CANCELED);
     }
 
-    function end(endType){
+    function end(endType,didScroll){
         parent._scrollSettings = null;
         callback(endType);
         parent.removeEventListener('touchstart', endHandler);
@@ -108,9 +132,17 @@ function transitionScrollTo(target, parent, settings, callback){
     endHandler = end.bind(null, CANCELED);
     parent.addEventListener('touchstart', endHandler);
 
-    if(idle){
+    if(idle && !isVisible(target, parent)){
         animate(parent);
+        return true;
+    } else {
+        end(SKIPPED);
+        return false;
     }
+}
+
+function isWindow(elem) {
+  return elem === window;
 }
 
 module.exports = function(target, settings, callback){
@@ -131,47 +163,49 @@ module.exports = function(target, settings, callback){
     settings.ease = settings.ease || function(v){return 1 - Math.pow(1 - v, v / 2);};
 
     var parent = target.parentElement,
-        parentsScrolled = 0,
-        parentsTraversed = 0;
+        parents = {
+          traversed: 0, // number of parents that were traversed upword
+          validated: 0, // number of parents that passed validation
+          scrolled: 0 // number of parents that actually scrolled
+        };
 
     function done(endType){
-        parentsScrolled--;
-        parentsTraversed--;
-        if(!parentsScrolled){
+        if (!(parents.validated-1)) {
             callback && callback(endType);
         }
     }
 
     while(parent){
         if(
-            // if window and we are forcing process of window
-            (parent === window && !settings.dontAlwaysScrollMain) ||
-
-            (   // or if there is a validTarget function, check it.
-                settings.validTarget ? settings.validTarget(parent, parentsScrolled, parentsTraversed) : true &&
-
-                // and if scrollable
+            ( // check the validTarget function if there is one
+                settings.validTarget ? settings.validTarget(parent, parents) : true
+            )
+            && (
+                isWindow(parent) ||
                 (
-                    parent.scrollHeight !== parent.clientHeight ||
-                    parent.scrollWidth !== parent.clientWidth
-                ) &&
+                    ( // and if scrollable
+                        parent.scrollHeight !== parent.clientHeight ||
+                        parent.scrollWidth !== parent.clientWidth
+                    ) &&
 
-                // And not hidden.
-                getComputedStyle(parent).overflow !== 'hidden'
+                    // And not hidden.
+                    getComputedStyle(parent).overflow !== 'hidden'
+                )
             )
         ){
-            parentsScrolled++;
-            transitionScrollTo(target, parent, settings, done);
+            parents.validated++;
+            parents.scrolled += transitionScrollTo(target, parent, settings, done)
+                                ? 1 : 0;
         }
 
-        parentsTraversed++;
+        parents.traversed++;
         parent = parent.parentElement;
 
         if(!parent){
             return;
         }
 
-        if(parent.tagName === 'BODY'){
+        if(parent.tagName === "BODY"){
             parent = window;
         }
     }
