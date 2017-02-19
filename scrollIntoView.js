@@ -145,7 +145,7 @@ function isWindow(elem) {
   return elem === window;
 }
 
-module.exports = function(target, settings, callback){
+function scrollIntoView(target, settings, callback){
     if(!target){
         return;
     }
@@ -210,3 +210,5 @@ module.exports = function(target, settings, callback){
         }
     }
 };
+
+module.exports.scrollIntoView = scrollIntoView
